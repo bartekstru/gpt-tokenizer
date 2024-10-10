@@ -21,19 +21,17 @@ class BasicTokenizer(Tokenizer):
             vocab_size (int): The desired size of the vocabulary.
             verbose (bool, optional): Whether to print progress. Defaults to False.
         """
+        assert vocab_size > 256, "Vocab size must be greater than 256"
         tokens = list(text.encode('utf-8'))
-        num_merges = vocab_size - 256
         merges = {}
-        for i in range(num_merges):
+        vocab = {idx: bytes([idx]) for idx in range(256)}
+        for i in range(vocab_size - 256):
             pair_freqs = count_pairs(tokens)
             best_pair = max(pair_freqs, key=pair_freqs.get)
             new_token = i + 256
             tokens = merge_tokens(tokens, best_pair, new_token)
             merges[best_pair] = new_token
-
-        vocab = {idx: bytes([idx]) for idx in range(256)}
-        for (p0, p1), idx in merges.items():
-            vocab[idx] = vocab[p0] + vocab[p1]
+            vocab[new_token] = vocab[best_pair[0]] + vocab[best_pair[1]]
 
         self.vocab = vocab
         self.merges = merges
@@ -50,12 +48,12 @@ class BasicTokenizer(Tokenizer):
         """
         tokens = list(text.encode('utf-8'))
         while len(tokens) >= 2:
-            stats = self._count_pairs(tokens)
+            stats = count_pairs(tokens)
             best_pair = min(stats, key=lambda p: self.merges.get(p, float("inf")))
             if best_pair not in self.merges:
                 break
             idx = self.merges[best_pair]
-            tokens = self._merge_tokens(tokens, best_pair, idx)
+            tokens = merge_tokens(tokens, best_pair, idx)
         return tokens
     
     def decode(self, ids):
